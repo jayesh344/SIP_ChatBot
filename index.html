@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>💬 AI Salary & Investment Planner</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(-45deg, #3498db, #9b59b6, #f39c12, #2ecc71);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .title {
+      background-color: #2980b9;
+      padding: 10px 20px;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .input-container {
+      width: 80%;
+      max-width: 600px;
+      margin-top: 20px;
+    }
+
+    .input-container label {
+      font-size: 18px;
+    }
+
+    #askChat {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0 5px 0;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+      box-sizing: border-box;
+    }
+
+    .input-container button {
+      padding: 12px 24px;
+      margin: 10px 8px 0 0;
+      font-size: 16px;
+      cursor: pointer;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease-in-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .input-container button::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all 0.4s ease;
+    }
+
+    .input-container button:hover::before {
+      left: 100%;
+    }
+
+    .input-container button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    #sendBtn { background: linear-gradient(135deg, #2980b9, #3498db); }
+    #themeBtn { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+    #voiceBtn { background: linear-gradient(135deg, #e67e22, #f39c12); }
+    #saveBtn { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+
+    #chatArea {
+      width: 80%;
+      max-width: 600px;
+      height: 500px;
+      margin-top: 20px;
+      background-color: #ecf0f1;
+      padding: 10px;
+      overflow-y: auto;
+      border-radius: 10px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #2c3e50;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .bot-msg {
+      background-color: #dcd6f7;
+      color: #4b0082;
+      border-radius: 15px 15px 15px 0;
+      padding: 10px;
+      max-width: 80%;
+      align-self: flex-start;
+    }
+
+    .user-msg {
+      background-color: #3498db;
+      color: white;
+      border-radius: 15px 15px 0 15px;
+      padding: 10px;
+      max-width: 80%;
+      align-self: flex-end;
+    }
+
+    .typing {
+      font-style: italic;
+      color: #888;
+      margin-bottom: 10px;
+      align-self: flex-start;
+    }
+
+    .smart-tip {
+      font-size: 14px;
+      font-style: italic;
+      color: #ffeb3b;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="title">💼 AI Salary & Investment Planner</div>
+
+  <div class="input-container">
+    <label for="askChat">💬 Your Answer:</label>
+    <div id="smartTip" class="smart-tip"></div>
+    <input type="text" id="askChat" placeholder="Type your answer here" autocomplete="off" />
+    <button id="sendBtn" onclick="handleChatInput()">➡️ Send</button>
+    <button id="themeBtn" onclick="toggleTheme()">🌓 Toggle Theme</button>
+    <button id="voiceBtn" onclick="startVoiceInput()">🎙️ Speak</button>
+    <button id="saveBtn" onclick="saveChat()">💾 Save Chat</button>
+  </div>
+
+  <div id="chatArea"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    let currentTheme = "dark";
+    let userData = {
+      salary: null,
+      fixedExpenses: null,
+      variableExpenses: null,
+      goalText: null,
+      goalAmount: null,
+      riskLevel: null
+    };
+    let currentStep = 0;
+
+    const questions = [
+      "💰 Please enter your monthly salary (₹):",
+      "🏠 Enter your fixed monthly expenses (₹):",
+      "🛒 Enter your variable monthly expenses (₹):",
+      "🎯 Describe your financial goal (text only):",
+      "💡 Enter the amount needed for your goal (₹):",
+      "📊 Select your risk level (Low, Medium, High):"
+    ];
+
+    const smartTips = [
+      "Tip: Include bonuses or other income sources too!",
+      "Tip: Rent, EMI, insurance — add those here.",
+      "Tip: Include food, shopping, travel, etc.",
+      "Tip: Example — 'Buy a bike' or 'Travel to Goa'.",
+      "Tip: Estimate total cost realistically.",
+      "Tip: Low = safe, High = more potential gains."
+    ];
+
+    window.onload = () => {
+      typeBotMessage("👋 Welcome! Let's plan your salary and investments smartly.");
+      setTimeout(() => {
+        typeBotMessage(questions[currentStep]);
+        updateSmartTip();
+        document.getElementById('askChat').focus();
+      }, 2000);
+    };
+
+    function updateSmartTip() {
+      const tipElem = document.getElementById("smartTip");
+      tipElem.textContent = smartTips[currentStep] || '';
+    }
+
+    function handleChatInput() {
+      const inputElem = document.getElementById('askChat');
+      let answer = inputElem.value.trim();
+      if (!answer) return;
+
+      appendMessage("User", answer);
+      inputElem.value = '';
+
+      switch(currentStep) {
+        case 0:
+          if (isNaN(answer) || parseInt(answer) <= 0) return typeBotMessage("⚠️ Please enter a valid positive number for salary.");
+          userData.salary = parseInt(answer); break;
+        case 1:
+          if (isNaN(answer) || parseInt(answer) < 0) return typeBotMessage("⚠️ Please enter a valid number (0 or more) for fixed expenses.");
+          userData.fixedExpenses = parseInt(answer); break;
+        case 2:
+          if (isNaN(answer) || parseInt(answer) < 0) return typeBotMessage("⚠️ Please enter a valid number (0 or more) for variable expenses.");
+          userData.variableExpenses = parseInt(answer); break;
+        case 3:
+          if (!/^[A-Za-z\s]+$/.test(answer)) return typeBotMessage("⚠️ Goal should only contain letters and spaces.");
+          userData.goalText = answer; break;
+        case 4:
+          if (isNaN(answer) || parseInt(answer) <= 0) return typeBotMessage("⚠️ Please enter a valid positive number for goal amount.");
+          userData.goalAmount = parseInt(answer); break;
+        case 5:
+          let risk = answer.toLowerCase();
+          if (!["low", "medium", "high"].includes(risk)) return typeBotMessage("⚠️ Please enter 'Low', 'Medium', or 'High' for risk level.");
+          userData.riskLevel = risk.charAt(0).toUpperCase() + risk.slice(1); break;
+      }
+
+      currentStep++;
+      updateSmartTip();
+
+      if (currentStep < questions.length) {
+        typeBotMessage(questions[currentStep]);
+      } else {
+        showSuggestion();
+      }
+    }
+
+    function showSuggestion() {
+      const { salary, fixedExpenses, variableExpenses, goalText, goalAmount, riskLevel } = userData;
+      const totalExpenses = fixedExpenses + variableExpenses;
+      const net_salary = salary - totalExpenses;
+
+      if (net_salary <= 0) {
+        typeBotMessage(`⚠️ Your expenses are higher than your income. Try to reduce expenses or increase your income to start saving.`);
+        return;
+      }
+
+      let emergency_pct, shortfall_pct, savings_pct, invest_pct, goal_pct;
+
+      if (riskLevel === "Low") {
+        emergency_pct = 0.10;
+        shortfall_pct = 0.05;
+        savings_pct = 0.40;
+        invest_pct = 0.20;
+        goal_pct = 0.25;
+      } else if (riskLevel === "Medium") {
+        emergency_pct = 0.15;
+        shortfall_pct = 0.10;
+        savings_pct = 0.15;
+        invest_pct = 0.23;
+        goal_pct = 0.22;
+      } else {
+        emergency_pct = 0.15;
+        shortfall_pct = 0.10;
+        savings_pct = 0.10;
+        invest_pct = 0.40;
+        goal_pct = 0.25;
+      }
+
+      let emergency_fund = Math.round(net_salary * emergency_pct);
+      let emergency_shortfall = Math.round(net_salary * shortfall_pct);
+      let savings = Math.round(net_salary * savings_pct);
+      let investment = Math.round(net_salary * invest_pct);
+      let goal_saving = Math.round(net_salary * goal_pct);
+
+      let plan = {
+        "🚨 Emergency Fund": emergency_fund,
+        "🛡️ Emergency Shortfall": emergency_shortfall,
+        "💰 Monthly Savings": savings,
+        "📊 Investments": investment,
+        "🎯 Goal Saving": goal_saving
+      };
+
+      const goalMonths = Math.ceil(goalAmount / net_salary);
+
+      let response = `✅ Here’s your smart financial plan:\n\n`;
+      response += `💸 Net Monthly Savings (after expenses): ₹${net_salary}\n`;
+      response += `\n📊 Distribution based on '${riskLevel}' risk profile:\n`;
+
+      for (let key in plan) {
+        response += `• ${key}: ₹${plan[key]}\n`;
+      }
+
+      response += `\n🎯 Goal: "${goalText}" (Target: ₹${goalAmount})\n`;
+      response += `🗓️ Estimated Time to Achieve: ${goalMonths} month(s)\n`;
+      response += `\n🚀 Stay consistent and you’ll hit your financial goals faster. Great going! 💼📈`;
+
+      typeBotMessage(response, plan);
+    }
+
+    function appendMessage(sender, message) {
+      const chatArea = document.getElementById("chatArea");
+      const messageDiv = document.createElement("div");
+
+      if (sender === "Bot") {
+        messageDiv.classList.add("message", "bot-msg");
+        messageDiv.innerHTML = `<strong>🤖 Bot:</strong><br>${message.replace(/\n/g, "<br>")}`;
+      } else {
+        messageDiv.classList.add("message", "user-msg");
+        messageDiv.innerHTML = `<strong>👤 User:</strong><br>${message.replace(/\n/g, "<br>")}`;
+      }
+
+      chatArea.appendChild(messageDiv);
+      messageDiv.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function typeBotMessage(message, plan = null) {
+      const chatArea = document.getElementById("chatArea");
+      const typingIndicator = document.createElement("div");
+      typingIndicator.classList.add("typing");
+      typingIndicator.textContent = "Bot is typing...";
+      chatArea.appendChild(typingIndicator);
+      chatArea.scrollTop = chatArea.scrollHeight;
+
+      setTimeout(() => {
+        chatArea.removeChild(typingIndicator);
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", "bot-msg");
+        messageDiv.innerHTML = `<strong>🤖 Bot:</strong><br>`;
+        chatArea.appendChild(messageDiv);
+
+        let index = 0;
+        function type() {
+          if (index < message.length) {
+            messageDiv.innerHTML = `<strong>🤖 Bot:</strong><br>${message.slice(0, index + 1).replace(/\n/g, "<br>")}`;
+            index++;
+            setTimeout(type, 25);
+          } else {
+            if (plan) showInvestmentChartInline(plan, messageDiv);
+            messageDiv.scrollIntoView({ behavior: "smooth" });
+          }
+        }
+        type();
+      }, 700);
+    }
+
+    function showInvestmentChartInline(plan, container) {
+      const chartCanvas = document.createElement("canvas");
+      chartCanvas.style.marginTop = "15px";
+      container.appendChild(chartCanvas);
+
+      const ctx = chartCanvas.getContext('2d');
+      const labels = Object.keys(plan);
+      const data = Object.values(plan);
+
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: ['#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#e74c3c'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'Investment Breakdown' }
+          }
+        }
+      });
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      if (currentTheme === "dark") {
+        body.style.background = "#ffffff";
+        body.style.animation = "none";
+        body.style.color = "#2c3e50";
+        currentTheme = "light";
+      } else {
+        body.style.background = "linear-gradient(-45deg, #3498db, #9b59b6, #f39c12, #2ecc71)";
+        body.style.backgroundSize = "400% 400%";
+        body.style.animation = "gradientBG 15s ease infinite";
+        body.style.color = "white";
+        currentTheme = "dark";
+      }
+    }
+
+    function startVoiceInput() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.start();
+
+      recognition.onresult = function(event) {
+        const speech = event.results[0][0].transcript;
+        document.getElementById('askChat').value = speech;
+        handleChatInput();
+      };
+
+      recognition.onerror = function() {
+        typeBotMessage("⚠️ Voice recognition error. Please try typing.");
+      }
+    }
+
+    function saveChat() {
+      const chatArea = document.getElementById("chatArea");
+      const messages = chatArea.querySelectorAll(".message");
+      let text = "";
+
+      messages.forEach(msg => {
+        text += msg.innerText + "\n\n";
+      });
+
+      const blob = new Blob([text], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "chat_summary.txt";
+      link.click();
+    }
+  </script>
+</body>
+</html>
